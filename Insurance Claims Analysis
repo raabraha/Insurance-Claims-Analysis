@@ -1,0 +1,354 @@
+---
+title: "Project3_Final"
+author: "Rahul Abraham"
+date: "April 19, 2020"
+output: html_document
+---
+
+This project has two objectives:
+
+1) To see what are the most significant predictors of car insurance claims costs so that insurance companies know what types of people / factors are at the highest risk and what types of people are lower risks
+
+2) To try to develop models that can predict a person's expected total auto claims cost. Insurance companies have to hold capital in reserves and being able to accurately predict a customer's claims costs will allow them to avoid holding more in reserves than needed.
+
+
+###Cleaning Data
+```{r}
+insurance <- read.csv("insurance.csv")
+insurance$Customer <- NULL
+insurance$State <- as.factor(insurance$State)
+insurance$Customer.Lifetime.Value <- as.numeric(insurance$Customer.Lifetime.Value)
+insurance$Income <- as.numeric(insurance$Income)
+insurance$Monthly.Premium.Auto <- as.numeric(insurance$Monthly.Premium.Auto)
+insurance$Months.Since.Last.Claim <- as.numeric(insurance$Months.Since.Last.Claim)
+insurance$Number.of.Open.Complaints <- as.numeric(insurance$Number.of.Open.Complaints)
+insurance$Number.of.Policies <- as.numeric(insurance$Number.of.Policies)
+insurance$Total.Claim.Amount <- as.numeric(insurance$Total.Claim.Amount)
+insurance$Months.Since.Policy.Inception <- as.numeric(insurance$Months.Since.Policy.Inception)
+insurance$Effective.To.Date <- NULL
+insurance$Gender <- as.factor(ifelse(insurance$Gender == "M", "Male", "Female"))
+
+
+str(insurance)
+```
+
+
+
+###Exploring Data
+```{r}
+library(ggplot2)
+
+hist(insurance$Total.Claim.Amount, breaks = 50, main = "Total Claims Distribution", xlab = "Claims Cost",col="red")
+
+ggplot(insurance, aes(x=Policy.Type, y= Total.Claim.Amount, fill = Policy.Type)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="Policy Type",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by Policy Type")
+
+ggplot(insurance, aes(x=Education, y= Total.Claim.Amount, fill = Education)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="Education",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by Education")
+
+
+ggplot(insurance, aes(x=State, y= Total.Claim.Amount, fill = State)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="State",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by State")
+
+ggplot(insurance, aes(x=Gender, y= Total.Claim.Amount, fill = Gender)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="Gender",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by Gender")
+
+ggplot(insurance, aes(x=Coverage, y= Total.Claim.Amount, fill = Coverage)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="Coverage Type",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by Coverage Type")
+
+ggplot(insurance, aes(x=Location.Code, y= Total.Claim.Amount, fill = Location.Code)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="Location Type",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by Location Type")
+
+ggplot(insurance, aes(x=Sales.Channel, y= Total.Claim.Amount, fill = Sales.Channel)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="Sales Channel",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by Sales Channel")
+
+ggplot(insurance, aes(x=Vehicle.Class, y= Total.Claim.Amount, fill = Vehicle.Class)) + 
+  geom_boxplot(show.legend = FALSE) + 
+  labs(x="Vehicle Class",y = "Total Claim Amount") + 
+  ggtitle("Total Claims by Vehicle Class")
+```
+
+Only obervable significant differences are in coverage type, loction type, and vehicle class
+
+
+
+
+###Linear Model
+```{r}
+Mod1 <- lm(Total.Claim.Amount ~., data = insurance)
+
+summary(Mod1)
+```
+
+Model shows that coverage type, education, gender, income, housing type, marital status, monthly premiums, type of renewal policy and the car being a sports car are significant variables. Surprisingly, customer lifetime value is not significant in predicitng a customers total claim amount. More expensive coverages reduce total claims, higher levels of education reduce total claims, men have higher total claims, higher income reduces total claims, people in the suburbs and have much higher claims than people in the city and rural areas, single people have the highest claims followed by divorced and then married, higher premiums lead to higher total claims, and people with sports cars have much lower total claims
+
+
+
+
+###Linear Model with only significant variables and interactions
+```{r}
+
+Mod2 <- lm(Total.Claim.Amount ~ Response + Coverage + Education + EmploymentStatus + Gender + Income + Location.Code + Marital.Status + Monthly.Premium.Auto + Vehicle.Class + Marital.Status*Location.Code + Education*Marital.Status + Marital.Status*Location.Code + EmploymentStatus*Education + Income*Marital.Status + Income*Coverage + Gender*Income , data = insurance)
+
+summary(Mod2)
+```
+
+Among people with masters degrees, those who are single and married have lower expected total claims costs than divorced people. Among those with extended and premium coverage , those with higher incomes have less total claims costs. Among people with masters degrees, those who are married have less total claims than those who are divorced and those who are single have even further less.
+
+
+
+
+
+###Training and Testing Data
+```{r}
+insurance = sample(insurance)
+train = insurance[1:7000,]
+test = insurance[7001,9134,]
+```
+
+
+
+
+
+###Neural Network
+```{r}
+normalize <- function(x) {    return((x - min(x)) / (max(x) - min(x)))  } 
+insurance1 = insurance
+set.seed(109)
+### only including numeric variables
+###converted categorical variables that had order into numeric dummy variables
+insurance1 = sample(insurance1)
+insurance1$State <- NULL
+insurance1$EmploymentStatus <- NULL
+insurance1$Gender <- NULL
+insurance1$Marital.Status <- NULL
+insurance1$Policy.Type <- NULL
+insurance1$Policy <- NULL
+insurance1$Renew.Offer.Type <- NULL
+insurance1$Sales.Channel <- NULL
+insurance1$Vehicle.Class <- NULL
+insurance1$Education <- ifelse(insurance1$Education == "High School of Below", 1, ifelse(insurance1$Education == "College", 2, ifelse(insurance1$Education == "Bachelor", 3, ifelse(insurance1$Education == "Master", 4, 5))))
+insurance1$Response <- ifelse(insurance1$Response == "No",0,1)
+insurance1$Coverage <- ifelse(insurance1$Coverage == "Basic", 1, ifelse(insurance1$Coverage == "Extended", 2, 3))
+insurance1$Location.Code <- ifelse(insurance1$Location.Code == "Rural", 1, ifelse(insurance1$Location.Code == "Suburban", 2, 3))
+insurance1$Vehicle.Size <- ifelse(insurance1$Vehicle.Size == "Small", 1, ifelse(insurance1$Vehicle.Size == "Medsize",2 ,3))
+
+
+insurance1_norm <- as.data.frame(lapply(insurance1, normalize)) 
+
+insurance1_train <- insurance1_norm[1:7000, ] 
+insurance1_test <- insurance1_norm[7001:9134, ] 
+
+library(neuralnet)
+insurance1_model <- neuralnet(Total.Claim.Amount ~ Education + Response + Coverage + Location.Code + Vehicle.Size + Monthly.Premium.Auto + Customer.Lifetime.Value + Months.Since.Policy.Inception, data = insurance1_train, hidden = 1)
+
+```
+
+
+```{r}
+plot(insurance1_model)
+```
+
+
+```{r}
+model_results <- compute(insurance1_model, insurance1_test)
+predicted_cost <- model_results$net.result 
+cor(predicted_cost, insurance1_test$Total.Claim.Amount)
+ 
+```
+
+This model has a correlation value of around 0.7 with the true total claims values, so it is fairly accurate in predicting.
+
+
+
+
+```{r}
+###improving the ANN model
+library(neuralnet)
+insurance1_model2 <- neuralnet(Total.Claim.Amount ~ Education + Response + Coverage + Location.Code + Vehicle.Size + Monthly.Premium.Auto + Customer.Lifetime.Value + Months.Since.Policy.Inception, data = insurance1_train, hidden = 3)
+```
+
+
+```{r}
+plot(insurance1_model2)
+```
+
+```{r}
+library(neuralnet)
+model_results2 <- compute(insurance1_model2, insurance1_test)
+predicted_cost2 <- model_results2$net.result 
+cor(predicted_cost2, insurance1_test$Total.Claim.Amount)
+```
+
+This model has an 0.8821 correlation value, and is thus very accurate in predicting total claims cost. 
+
+
+```{r}
+# computing mean squared testing error for neural network
+nn_test_MSE <- mean((insurance1_test$Total.Claim.Amount - predicted_cost2)^2)
+nn_test_MSE
+```
+
+This improved model has a test meaning squared error of 0.00241, reiterating the conclusion that the model is very accurate. 
+
+
+
+
+### KNN Regression
+```{r}
+library(FNN)
+set.seed(100)
+#creating training and testing datasets with normalized dataset 
+train_knn_size <- floor(nrow(insurance1_norm) * 0.7)
+train_id <- sample(1:nrow(insurance1_norm), train_knn_size)
+train_knn <- insurance1_norm[train_id, ]
+test_knn <- insurance1_norm[-train_id, ]
+
+knn_mod <- knn.reg(train = train_knn, y = train_knn$Total.Claim.Amount, test = test_knn, k = 6)
+
+
+testMSE <- mean((test_knn$Total.Claim.Amount - knn_mod$pred)^2)
+testMSE
+
+cor(test_knn$Total.Claim.Amount, knn_mod$pred)
+```
+
+Based on trial and error, the min MSE and the highest correlation with the test data occurs at K = 6. This model has a 0.88283 correlation value, meaning it is also very accurate in predicting total claims cost from about 8 of the numeric variables.
+
+
+
+```{r}
+set.seed(100)
+# looking for how testing error varies with k values
+k_range = c(1,3,5,10,25,50,300,500)
+testMSE = c() 
+
+for(i in 1:length(k_range)){
+knn_mod2 <- knn.reg(train = train_knn, y = train_knn$Total.Claim.Amount,
+test = test_knn,k = k_range[i])
+testMSE[i] <- mean((test_knn$Total.Claim.Amount - knn_mod2$pred)^2)
+}
+
+
+
+plot(testMSE ~ I(k_range), type = "b", lwd = 2, col = "blue",
+main = "Test MSE for KNN", xlab = "K", ylab = "MSE")
+lines(testMSE ~ I(k_range), type = "b", lwd = 2, col = "red")
+
+```
+
+This reconfirms that K = 6 produces the minimum mean squared error
+
+
+
+
+
+### Regression Decision Tree
+```{r}
+# look at the class variable
+summary(insurance$Total.Claim.Amount)
+
+# create a random sample for training and test data
+# use set.seed to use the same random number sequence as the tutorial
+set.seed(12345)
+insurance_rand = insurance[order(runif(nrow(insurance))), ]
+
+# split the data frames
+insurance_train = insurance_rand[1:6000, ]
+insurance_test  = insurance_rand[6001:9134, ]
+
+library(rpart)
+
+# grow tree
+regressionTree = rpart(Total.Claim.Amount~.,
+   method="anova", data= insurance_train)
+
+# display simple facts about the tree
+regressionTree
+
+# display the results
+printcp(regressionTree)
+
+# visualize cross-validation results
+plotcp(regressionTree)
+
+# detailed summary of splits
+summary(regressionTree) 
+
+# visualize cross-validation results
+rsq.rpart(regressionTree)   
+
+# plot regression tree
+plot(regressionTree, uniform=TRUE,
+   main="Regression Tree for TotalCleaimAmount ")
+text(regressionTree, use.n=TRUE, all=TRUE, cex=0.6)
+predReg = predict(regressionTree, insurance_test)
+#MSE of the regression tree
+mean((predReg-insurance_test$Total.Claim.Amount)^2)
+
+# prune the tree
+pRegTree<- prune(regressionTree, cp=0.011)  
+# plot the pruned tree
+plot(pRegTree, uniform=TRUE,
+   main="pruned tree for TotalCleaimAmount ")
+text(pRegTree, use.n=TRUE, all=TRUE, cex=0.6)
+
+predPTree = predict(pRegTree, insurance_test)
+#MSE of the puruned tree
+mean((predPTree-insurance_test$Total.Claim.Amount)^2)
+```
+
+
+```{r}
+# normalizing predicted values in order to compute normalized testing error
+predReg_norm <- normalize(predReg)
+insurance_test_norm <- normalize(insurance1_test$Total.Claim.Amount)
+
+
+tree_test_error <- mean((predReg_norm - insurance_test_norm)^2)
+tree_test_error
+
+```
+
+Based on the mean squared error for the regression tree and the pruned tree, the regression tree has a lower mean squared error. Therefore, the regression tree has a better fit for the testing data. The decision regression tree has a test mean squared error of 0.04507 which is not as accurate as the ANN model or the KNN model.
+
+
+### Random Forest
+```{r}
+library(randomForest)
+rf <- randomForest(Total.Claim.Amount ~ ., data= insurance_train, ntree = 10, importance = TRUE)
+rf
+pred_rf = predict(rf, newdata=insurance_test)
+# again, normalizing predicted values to compute a normalized mean squared testing error
+pred_rf_norm <- normalize(pred_rf)
+
+rf_test_MSE <- mean((pred_rf_norm - insurance_test_norm)^2)
+rf_test_MSE
+
+```
+The random forest model has a mean squared error of .03097 which means it is slightly more accurate than the decision trees.
+
+
+
+
+### Conclusion
+
+Among the many features of individual customers and their vehicles, coverage type, education level ,gender, location type, and sports cars are among most important factors. Based on discovering what the important variables were, in addition to the correlated variables, we are able to learn about what types of features of a person and their vehicle make a high or low risk in terms of total claims cost. We discussed before what the effects of these certain features were on total claims costs. Insurance companies can use these discoveries to target people with factors make them a lower risk in order to earn revenue from premiums with a low likelihood of having to payout claims. They can also use this information to avoid people with the factors that are higher risks since those people will likely be the ones who cost the insurance company the most money.
+
+Our second goal of this project was to try and predict total claims costs as accurately as possible. In this project, we investigated KNN regression , ANN, decision tree regression, and a random forest model. For all three models the normalized test MSE was calculated as an accuracy metric that could be used to compare against each other. The MSE values were 0.00255, 0.002411, 0.04507, and 0.03097 respectively. Thus, the KNN and ANN models are both very accurate and have nearly identical MSEs. Thus, we can recommend these two models to insurance companies as they have extremely low error rates for predicting total claims costs. This can help insurance companies avoid the extra cost and burden of holding more reserves than needed.
+
+
